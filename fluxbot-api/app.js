@@ -1,0 +1,591 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import fetch from 'node-fetch';
+// Importa o pool do banco de dados de um arquivo separado
+import { pool } from './db.js';
+
+// Importa os serviços de bot
+// O startDevice será adaptado para lidar com 'whatsapp' (web.js) e 'whatsapp_cloud' (Meta)
+import { startDevice, stopDevice } from './botService.js';
+
+dotenv.config();
+
+const app = express();
+
+// ========================
+// CORS — libera front-end
+// ========================
+app.use(cors({
+    origin: '*', // Em produção, troque por seu domínio real (ex: 'http://localhost:8080')
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Lê JSON do body
+app.use(express.json());
+
+// ========================
+// HELPERS
+// ========================
+function generateToken(userId) {
+    return jwt.sign(
+        { userId },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+    );
+}
+
+function auth(req, res, next) {
+    const header = req.headers.authorization;
+    if (!header) {
+        return res.status(401).json({ error: 'Token ausente.' });
+    }
+
+    const [, token] = header.split(' ');
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        req.userId = payload.userId;
+        next();
+    } catch (err) {
+        return res.status(401).json({ error: 'Token inválido ou expirado.' });
+    }
+}
+
+// ========================
+// ROTAS
+// ========================
+
+// Teste de saúde (banco + API)
+app.get('/health', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT NOW() as now');
+        res.json({ status: 'ok', dbTime: result.rows[0].now });
+    } catch (err) {
+        console.error('Erro no /health:', err.message);
+        res.status(500).json({ status: 'error', error: 'Falha na conexão com banco.' });
+    }
+});
+
+// Criar conta
+app.post('/auth/register', async (req, res) => {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+        return res.status(400).json({
+            error: 'Nome, e-mail e senha são obrigatórios.'
+        });
+    }
+
+    try {
+        const hash = await bcrypt.hash(password, 10);
+
+        const { rows } = await pool.query(
+            `INSERT INTO users (name, email, password_hash)
+             VALUES ($1, $2, $3)
+             RETURNING id, name, email`,
+            [name, email, hash]
+        );
+
+        const user = rows[0];
+        const token = generateToken(user.id);
+
+        await pool.query(
+            `INSERT INTO subscriptions (user_id, plan_id, status, trial_end_at, current_period_start)
+             VALUES ($1, 1, 'trial', NOW() + INTERVAL '7 days', NOW())`,
+            [user.id]
+        );
+
+        res.status(201).json({ token, user });
+    } catch (err) {
+        if (err.code === '23505') {
+            return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+        }
+        console.error('Erro no /auth/register:', err.message);
+        res.status(500).json({ error: 'Erro ao criar conta.' });
+    }
+});
+
+
+// Login
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({
+            error: 'E-mail e senha são obrigatórios.'
+        });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, name, email, password_hash
+             FROM users
+             WHERE email = $1`,
+            [email]
+        );
+
+        const user = rows[0];
+        if (!user) {
+            return res.status(401).json({ error: 'Credenciais inválidas.' });
+        }
+
+        const ok = await bcrypt.compare(password, user.password_hash);
+        if (!ok) {
+            return res.status(401).json({ error: 'Credenciais inválidas.' });
+        }
+
+        const token = generateToken(user.id);
+        res.json({
+            token,
+            user: { id: user.id, name: user.name, email: user.email },
+        });
+    } catch (err) {
+        console.error('Erro no /auth/login:', err.message);
+        res.status(500).json({ error: 'Erro ao autenticar.' });
+    }
+});
+
+// Dashboard overview (protegido)
+app.get('/dashboard/overview', auth, async (req, res) => {
+    const userId = req.userId;
+
+    try {
+        // Exemplo de como buscar dados para o dashboard
+        // Você precisará de uma tabela 'messages' e 'contacts' para isso
+        const messagesTodayResult = await pool.query(
+            `SELECT COUNT(*) FROM messages
+             WHERE user_id = $1
+               AND created_at::date = CURRENT_DATE`,
+            [userId]
+        );
+        const messagesToday = messagesTodayResult.rows[0].count;
+
+        const totalContactsResult = await pool.query(
+            `SELECT COUNT(*) FROM contacts
+             WHERE user_id = $1`,
+            [userId]
+        );
+        const totalContacts = totalContactsResult.rows[0].count;
+
+        const devicesConnectedResult = await pool.query(
+            `SELECT COUNT(*) FROM devices
+             WHERE user_id = $1
+               AND status = 'connected'`,
+            [userId]
+        );
+        const devicesConnected = devicesConnectedResult.rows[0].count;
+
+        res.json({
+            messagesToday: parseInt(messagesToday),
+            totalContacts: parseInt(totalContacts),
+            devicesConnected: parseInt(devicesConnected),
+            // Adicione mais métricas conforme necessário
+        });
+    } catch (err) {
+        console.error('Erro no /dashboard/overview:', err.message);
+        res.status(500).json({ error: 'Erro ao carregar dados do dashboard.' });
+    }
+});
+
+// Listar aparelhos (protegido)
+app.get('/devices', auth, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, name, platform, status, last_error, last_connected_at, created_at
+             FROM devices
+             WHERE user_id = $1
+             ORDER BY created_at DESC`,
+            [req.userId]
+        );
+        res.json({ devices: rows });
+    } catch (err) {
+        console.error('Erro ao listar devices:', err.message);
+        res.status(500).json({ error: 'Erro ao listar aparelhos.' });
+    }
+});
+
+// Criar aparelho (protegido)
+app.post('/devices', auth, async (req, res) => {
+    try {
+        const { name, platform, config } = req.body;
+
+        if (!name || !platform) {
+            return res.status(400).json({ error: 'Informe nome e plataforma.' });
+        }
+
+        // <--- ATUALIZADO: Adicionando 'whatsapp_cloud' às plataformas permitidas
+        const allowedPlatforms = ['whatsapp', 'telegram', 'whatsapp_cloud'];
+        if (!allowedPlatforms.includes(platform)) {
+            return res.status(400).json({ error: 'Plataforma inválida.' });
+        }
+
+        const configJson =
+            config && typeof config === 'object' ? config : {};
+
+        // Adicione o status inicial 'disconnected' aqui
+        const initialStatus = 'disconnected';
+
+        const { rows } = await pool.query(
+            `INSERT INTO devices (user_id, name, platform, config, status)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, name, platform, status, created_at`,
+            [req.userId, name, platform, configJson, initialStatus]
+        );
+
+        res.status(201).json(rows[0]);
+    } catch (err) {
+        console.error('Erro ao criar device:', err.message);
+        let userMessage = 'Erro ao criar aparelho.';
+        if (err.code === '23502') { // not-null violation
+            userMessage = `Erro: Campo '${err.column}' é obrigatório.`;
+        } else if (err.code === '42P01') { // undefined_table
+            userMessage = 'Erro interno: Tabela de aparelhos não encontrada.';
+        }
+        res.status(500).json({ error: userMessage });
+    }
+});
+
+// Atualizar aparelho (protegido)
+app.put('/devices/:id', auth, async (req, res) => {
+    try {
+        const deviceId = Number(req.params.id);
+        if (!deviceId || Number.isNaN(deviceId)) {
+            return res.status(400).json({ error: 'ID inválido.' });
+        }
+
+        const { name, config } = req.body;
+
+        const fields = [];
+        const values = [];
+        let idx = 1;
+
+        if (name) {
+            fields.push(`name = $${idx++}`);
+            values.push(name);
+        }
+
+        if (config && typeof config === 'object') {
+            fields.push(`config = $${idx++}`);
+            values.push(config);
+        }
+
+        if (fields.length === 0) {
+            return res.status(400).json({ error: 'Nada para atualizar.' });
+        }
+
+        // WHERE params
+        values.push(req.userId);
+        values.push(deviceId);
+
+        const { rows } = await pool.query(
+            `
+            UPDATE devices
+               SET ${fields.join(', ')},
+                   updated_at = NOW()
+             WHERE user_id = $${idx++}
+               AND id = $${idx}
+             RETURNING
+               id,
+               name,
+               platform,
+               status,
+               last_error,
+               last_connected_at,
+               created_at
+            `,
+            values
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Aparelho não encontrado.' });
+        }
+
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Erro ao atualizar device:', err.message);
+        res.status(500).json({ error: 'Erro ao atualizar aparelho.' });
+    }
+});
+
+// Detalhe de um device
+app.get('/devices/:id', auth, async (req, res) => {
+    const userId = req.userId;
+    const deviceId = req.params.id;
+
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, user_id, name, platform, status, created_at, last_connected_at, last_error
+       FROM devices
+       WHERE id = $1 AND user_id = $2`,
+            [deviceId, userId]
+        );
+
+        const device = rows[0];
+        if (!device) {
+            return res.status(404).json({ error: 'Aparelho não encontrado.' });
+        }
+
+        res.json({ device });
+    } catch (err) {
+        console.error('Erro no GET /devices/:id:', err.message);
+        res.status(500).json({ error: 'Erro ao buscar aparelho.' });
+    }
+});
+
+
+// Remover aparelho (protegido)
+app.delete('/devices/:id', auth, async (req, res) => {
+    try {
+        const deviceId = Number(req.params.id);
+
+        if (!deviceId || Number.isNaN(deviceId)) {
+            return res.status(400).json({ error: 'ID inválido.' });
+        }
+
+        // Antes de remover do DB, tenta parar o bot se estiver ativo
+        await stopDevice(deviceId); // Garante que a sessão seja encerrada
+
+        const { rowCount } = await pool.query(
+            `DELETE FROM devices
+              WHERE user_id = $1
+                AND id = $2`,
+            [req.userId, deviceId]
+        );
+
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Aparelho não encontrado.' });
+        }
+
+        // REST padrão → 204 No Content
+        res.status(204).send();
+
+    } catch (err) {
+        console.error('Erro ao remover device:', err.message);
+        res.status(500).json({ error: 'Erro ao remover aparelho.' });
+    }
+});
+
+// Conectar aparelho (protegido)
+app.post('/devices/:id/connect', auth, async (req, res) => {
+    try {
+        const deviceId = Number(req.params.id);
+
+        if (!deviceId || Number.isNaN(deviceId)) {
+            return res.status(400).json({ error: 'ID inválido.' });
+        }
+
+        // 1. Busca o device do usuário para ter todas as configs
+        const { rows } = await pool.query(
+            `SELECT id, user_id, name, platform, status, config
+             FROM devices
+             WHERE id = $1 AND user_id = $2`,
+            [deviceId, req.userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Aparelho não encontrado.' });
+        }
+
+        const device = rows[0];
+
+        // <--- ATUALIZADO: Lógica para Cloud API
+        if (device.platform === 'whatsapp_cloud') {
+            // Para Cloud API, "conectar" significa apenas marcar como ativo
+            // Não há uma conexão persistente como no whatsapp-web.js
+            await pool.query(
+                `UPDATE devices SET status = 'connected', last_connected_at = NOW() WHERE id = $1`,
+                [deviceId]
+            );
+            console.log(`Device ${deviceId} (WhatsApp Cloud) marcado como conectado.`);
+        } else {
+            // Para whatsapp-web.js, chama o serviço de bots para iniciar a conexão
+            await startDevice(device);
+        }
+
+        // 3. Retorna o device atualizado (buscando do DB para ter o status mais recente)
+        const { rows: updatedDeviceRows } = await pool.query(
+            `SELECT id, name, platform, status, last_error, last_connected_at, created_at
+             FROM devices
+             WHERE id = $1`,
+            [deviceId]
+        );
+
+        res.json(updatedDeviceRows[0]);
+
+    } catch (err) {
+        console.error('Erro ao conectar device na API:', err.message);
+        res.status(500).json({ error: 'Erro ao conectar aparelho.' });
+    }
+});
+
+// Desconectar aparelho (protegido)
+app.post('/devices/:id/disconnect', auth, async (req, res) => {
+    try {
+        const deviceId = Number(req.params.id);
+
+        if (!deviceId || Number.isNaN(deviceId)) {
+            return res.status(400).json({ error: 'ID inválido.' });
+        }
+
+        // 1. Confirma que o device pertence ao usuário
+        const { rowCount, rows: deviceRows } = await pool.query(
+            `SELECT id, platform FROM devices WHERE id = $1 AND user_id = $2`,
+            [deviceId, req.userId]
+        );
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Aparelho não encontrado.' });
+        }
+
+        const device = deviceRows[0];
+
+        // <--- ATUALIZADO: Lógica para Cloud API
+        if (device.platform === 'whatsapp_cloud') {
+            // Para Cloud API, "desconectar" significa apenas marcar como desconectado
+            await pool.query(
+                `UPDATE devices SET status = 'disconnected', last_error = NULL WHERE id = $1`,
+                [deviceId]
+            );
+            console.log(`Device ${deviceId} (WhatsApp Cloud) marcado como desconectado.`);
+        } else {
+            // Para whatsapp-web.js, chama o serviço de bots para parar a conexão
+            await stopDevice(deviceId);
+        }
+
+        // 3. Retorna o device atualizado (buscando do DB para ter o status mais recente)
+        const { rows: updatedDeviceRows } = await pool.query(
+            `SELECT id, name, platform, status, last_error, last_connected_at, created_at
+             FROM devices
+             WHERE id = $1`,
+            [deviceId]
+        );
+
+        res.json(updatedDeviceRows[0]);
+
+    } catch (err) {
+        console.error('Erro ao desconectar device na API:', err.message);
+        res.status(500).json({ error: 'Erro ao desconectar aparelho.' });
+    }
+});
+
+// ====================================================================================================
+// <--- NOVAS ROTAS PARA WHATSAPP CLOUD API (META) ---
+// ====================================================================================================
+
+// Rota para enviar mensagem via WhatsApp Cloud API
+app.post('/whatsapp-cloud/send', auth, async (req, res) => {
+    const { deviceId, to, text } = req.body;
+
+    if (!deviceId || !to || !text) {
+        return res.status(400).json({ error: 'deviceId, to e text são obrigatórios.' });
+    }
+
+    try {
+        // 1. Busca o device do usuário para ter as configs da Cloud API
+        const { rows } = await pool.query(
+            `SELECT id, user_id, platform, config
+             FROM devices
+             WHERE id = $1 AND user_id = $2 AND platform = 'whatsapp_cloud'`,
+            [deviceId, req.userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Aparelho WhatsApp Cloud não encontrado ou não pertence ao usuário.' });
+        }
+
+        const device = rows[0];
+        const phoneNumberId = device.config.phoneNumberId || process.env.META_WA_PHONE_NUMBER_ID;
+        const accessToken = device.config.accessToken || process.env.META_WA_TOKEN;
+
+        if (!phoneNumberId || !accessToken) {
+            return res.status(400).json({ error: 'Configurações da WhatsApp Cloud API (phoneNumberId ou accessToken) ausentes no aparelho ou variáveis de ambiente.' });
+        }
+
+        const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+        const headers = {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+        };
+        const body = JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'text',
+            text: {
+                body: text,
+            },
+        });
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: body,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('Erro ao enviar mensagem via WhatsApp Cloud API:', data);
+            return res.status(response.status).json({ error: data.error?.message || 'Erro ao enviar mensagem via WhatsApp Cloud API.' });
+        }
+
+        res.json({ success: true, messageId: data.messages[0].id });
+
+    } catch (err) {
+        console.error('Erro no /whatsapp-cloud/send:', err.message);
+        res.status(500).json({ error: 'Erro interno ao enviar mensagem.' });
+    }
+});
+
+// Rota de Webhook para verificação da Meta
+app.get('/whatsapp-cloud/webhook', (req, res) => {
+    const verifyToken = process.env.META_WA_WEBHOOK_VERIFY_TOKEN;
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    if (mode === 'subscribe' && token === verifyToken) {
+        console.log('Webhook WhatsApp Cloud verificado com sucesso!');
+        return res.status(200).send(challenge);
+    }
+
+    res.sendStatus(403);
+});
+
+// Rota de Webhook para recebimento de mensagens da Meta
+app.post('/whatsapp-cloud/webhook', async (req, res) => {
+    try {
+        const body = req.body;
+        console.log('Webhook WhatsApp Cloud recebido:', JSON.stringify(body, null, 2));
+
+        // <--- Aqui você processaria as mensagens recebidas ---
+        // Exemplo: Salvar no banco de dados, disparar fluxos, etc.
+        // Você precisará de uma tabela 'messages' para isso.
+
+        // Exemplo de como extrair uma mensagem de texto
+        if (body.object === 'whatsapp_business_account' && body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages) {
+            const message = body.entry[0].changes[0].value.messages[0];
+            const from = message.from; // Número do remetente
+            const text = message.text?.body; // Conteúdo da mensagem de texto
+
+            console.log(`Mensagem recebida de ${from}: ${text}`);
+
+            // <--- FUTURO: Aqui você chamaria seu motor de fluxos
+            // Ex: await processIncomingMessage(from, text, deviceId);
+        }
+
+        res.sendStatus(200); // Sempre responda 200 OK para a Meta
+    } catch (err) {
+        console.error('Erro no webhook WhatsApp Cloud:', err.message);
+        res.sendStatus(500);
+    }
+});
+
+// ========================
+// INICIAR SERVIDOR
+// ========================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`✅ 🚀 FluxBot API rodando em http://localhost:${PORT}`);
+});

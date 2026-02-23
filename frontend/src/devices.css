@@ -1,0 +1,29 @@
+.status-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .status-badge.online {
+            background-color: green;
+        }
+
+        .status-badge.offline {
+            background-color: red;
+        }
+
+        .status-badge.pending {
+            background-color: orange;
+        }
+
+        .alert {
+            padding: 6px 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }

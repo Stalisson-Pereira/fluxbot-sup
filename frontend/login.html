@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | FluxBot</title>
+    <link rel="stylesheet" href="src/css/styles.css" />
+</head>
+
+<body class="full-page">
+    <!-- HEADER -->
+    <header>
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <div class="logo-badge">FB</div>
+                <span>FLUXBOT</span>
+            </a>
+
+            <nav>
+                <a href="index.html#home">Home</a>
+                <a href="index.html#features">Funcionalidades</a>
+                <a href="index.html#plans">Planos</a>
+                <a href="index.html#faq">Suporte</a>
+                <a href="login.html" class="active-link" id="login-link-header">Login</a>
+                <div class="nav-cta">
+                    <a href="dashboard.html" class="btn btn-outline btn-sm" id="dashboard-btn-header"
+                        style="display: none;">Painel</a>
+                    <a href="register.html" class="btn btn-primary btn-sm" id="register-btn-header">Começar Agora</a>
+                </div>
+            </nav>
+
+            <button class="mobile-menu-btn">Menu</button>
+        </div>
+    </header>
+
+    <main class="main-centered">
+        <div class="auth-card">
+            <div class="auth-title">Entrar no FluxBot</div>
+            <div class="auth-subtitle">
+                Acesse o painel para gerenciar seus aparelhos, fluxos e campanhas.
+            </div>
+
+            <form class="auth-form" id="login-form">
+                <div class="auth-form-group">
+                    <label class="auth-label" for="email">E-mail</label>
+                    <input type="email" id="email" class="auth-input" placeholder="seuemail@empresa.com" required />
+                </div>
+
+                <div class="auth-form-group">
+                    <label class="auth-label" for="password">Senha</label>
+                    <input type="password" id="password" class="auth-input" placeholder="Digite sua senha" required />
+                </div>
+
+                <div id="message-area" class="message-area" style="display: none;"></div>
+
+                <div class="auth-actions">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;" id="login-button">
+                        Entrar
+                    </button>
+
+                    <div class="auth-muted-link">
+                        Esqueceu a senha? <a href="#">Recuperar acesso</a>
+                    </div>
+                    <div class="auth-muted-link">
+                        Ainda não tem conta? <a href="register.html">Criar conta agora</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container footer-inner">
+            <div>© <span id="year"></span> FluxBot. Todos os direitos reservados.</div>
+            <div class="footer-links">
+                <a href="#termos">Termos de Uso</a>
+                <a href="#privacidade">Política de Privacidade</a>
+                <a href="#contato">Contato</a>
+                <a href="#suporte">Suporte</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            setupLoginForm();
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configurar Aparelho | FluxBot</title>
+    <link rel="stylesheet" href="src/css/styles.css" />
+</head>
+
+<body class="full-page">
+    <!-- HEADER -->
+    <header>
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <div class="logo-badge">FB</div>
+                <span>FLUXBOT</span>
+            </a>
+
+            <nav>
+                <a href="index.html#home">Home</a>
+                <a href="index.html#features">Funcionalidades</a>
+                <a href="index.html#plans">Planos</a>
+                <a href="index.html#faq">Suporte</a>
+                <a href="login.html" id="login-link-header" style="display:none;">Login</a>
+                <div class="nav-cta">
+                    <a href="dashboard.html" class="btn btn-outline btn-sm" id="dashboard-btn-header">Painel</a>
+                    <a href="register.html" class="btn btn-primary btn-sm" id="register-btn-header"
+                        style="display:none;">Começar Agora</a>
+                    <button class="btn btn-secondary btn-sm" id="logout-button">Sair</button>
+                </div>
+            </nav>
+
+            <button class="mobile-menu-btn">Menu</button>
+        </div>
+    </header>
+
+    <main class="dashboard-main">
+        <div class="container">
+            <div class="dashboard-header">
+                <div>
+                    <div class="section-kicker">APARELHO</div>
+                    <h1 class="dashboard-title" id="device-name-title">Carregando aparelho...</h1>
+                    <p class="dashboard-subtitle" id="device-subtitle">
+                        Configure mensagens, servidores e ações automáticas para este dispositivo.
+                    </p>
+                </div>
+                <a href="dashboard.html" class="btn btn-outline btn-sm">Voltar ao Painel</a>
+            </div>
+
+            <div id="device-message" class="message-area" style="display:none;"></div>
+
+            <!-- Cabeçalho com status -->
+            <div class="dashboard-card" style="margin-bottom: 20px;">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-title">Informações do Aparelho</div>
+                    <span id="device-status-badge" class="badge-status offline">Carregando...</span>
+                </div>
+                <div class="dashboard-card-body">
+                    <p><strong>Plataforma:</strong> <span id="device-platform">-</span></p>
+                    <p><strong>Última conexão:</strong> <span id="device-last-connected">-</span></p>
+                    <p><strong>Criado em:</strong> <span id="device-created-at">-</span></p>
+                </div>
+            </div>
+
+            <!-- Abas de configuração -->
+            <div class="tabs">
+                <button class="tab-button active" data-tab="messages-tab">Mensagens</button>
+                <button class="tab-button" data-tab="servers-tab">Servidores / Webhooks</button>
+                <button class="tab-button" data-tab="ctas-tab">CTAs / Fluxos</button>
+            </div>
+
+            <div class="tabs-content">
+                <!-- Aba Mensagens -->
+                <div class="tab-panel active" id="messages-tab">
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Mensagens Automáticas</div>
+                        </div>
+                        <div class="dashboard-card-body">
+                            <div class="auth-form-group">
+                                <label class="auth-label" for="welcome-message">
+                                    Mensagem de boas-vindas
+                                </label>
+                                <textarea id="welcome-message" class="auth-input" rows="3"
+                                    placeholder="Ex: Olá, seja bem-vindo! Como posso te ajudar hoje?"></textarea>
+                            </div>
+
+                            <div class="auth-form-group">
+                                <label class="auth-label" for="offline-message">
+                                    Mensagem fora do horário
+                                </label>
+                                <textarea id="offline-message" class="auth-input" rows="3"
+                                    placeholder="Ex: Nosso atendimento está offline no momento, mas vamos te responder assim que possível."></textarea>
+                            </div>
+
+                            <button id="save-messages-button" class="btn btn-primary btn-sm">
+                                Salvar Mensagens
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba Servidores -->
+                <div class="tab-panel" id="servers-tab">
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Servidores / Webhooks</div>
+                        </div>
+                        <div class="dashboard-card-body">
+                            <div class="auth-form-group">
+                                <label class="auth-label" for="webhook-url">
+                                    URL do Webhook
+                                </label>
+                                <input type="url" id="webhook-url" class="auth-input"
+                                    placeholder="https://seusistema.com/webhook-fluxbot" />
+                            </div>
+
+                            <div class="auth-form-group">
+                                <label class="auth-label" for="webhook-secret">
+                                    Chave secreta (opcional)
+                                </label>
+                                <input type="text" id="webhook-secret" class="auth-input"
+                                    placeholder="Segredo para validar chamadas recebidas" />
+                            </div>
+
+                            <button id="save-servers-button" class="btn btn-primary btn-sm">
+                                Salvar Configurações de Servidor
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aba CTAs / Fluxos -->
+                <div class="tab-panel" id="ctas-tab">
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">CTAs / Fluxos Rápidos</div>
+                        </div>
+                        <div class="dashboard-card-body">
+                            <p style="margin-bottom:10px;">
+                                Aqui você poderá definir atalhos rápidos, como:
+                            </p>
+                            <ul style="margin-left:18px; margin-bottom:15px;">
+                                <li>Opções de menu inicial (1 - Vendas, 2 - Suporte, 3 - Financeiro...)</li>
+                                <li>Palavras-chave que disparam ações (ex: "boletos", "cancelar", "suporte")</li>
+                                <li>Integração com funis do seu CRM</li>
+                            </ul>
+                            <p style="opacity:0.8;">
+                                Nesta primeira versão, estamos apenas definindo a interface.
+                                A lógica de fluxo pode ser conectada depois, conforme seus requisitos.
+                            </p>
+                            <button class="btn btn-outline btn-sm" disabled>
+                                Em breve: Criar Fluxo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer>
+        <div class="container footer-inner">
+            <div>© <span id="year"></span> FluxBot. Todos os direitos reservados.</div>
+            <div class="footer-links">
+                <a href="#termos">Termos de Uso</a>
+                <a href="#privacidade">Política de Privacidade</a>
+                <a href="#contato">Contato</a>
+                <a href="#suporte">Suporte</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/device-settings.js"></script>
+</body>
+
+</html>

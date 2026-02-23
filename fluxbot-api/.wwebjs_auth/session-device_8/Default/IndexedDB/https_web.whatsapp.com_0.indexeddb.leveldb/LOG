@@ -1,0 +1,12 @@
+2026/02/23-14:02:59.131 f04 Reusing MANIFEST C:\Users\thall\OneDrive\Área de Trabalho\botBot-v1\fluxbot-api\.wwebjs_auth\session-device_8\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/02/23-14:02:59.134 f04 Recovering log #43
+2026/02/23-14:02:59.284 f04 Reusing old log C:\Users\thall\OneDrive\Área de Trabalho\botBot-v1\fluxbot-api\.wwebjs_auth\session-device_8\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000043.log 
+2026/02/23-18:06:05.348 dc0 Level-0 table #49: started
+2026/02/23-18:06:05.416 dc0 Level-0 table #49: 1127814 bytes OK
+2026/02/23-18:06:05.490 dc0 Delete type=0 #43
+2026/02/23-18:16:01.428 dc0 Compacting 1@1 + 1@2 files
+2026/02/23-18:16:01.885 dc0 Generated table #50@1: 24993 keys, 924175 bytes
+2026/02/23-18:16:02.020 dc0 Compacted 1@1 + 1@2 files => 924175 bytes
+2026/02/23-18:16:02.094 dc0 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/02/23-18:16:02.099 dc0 Delete type=2 #46
+2026/02/23-18:16:02.100 dc0 Delete type=2 #49

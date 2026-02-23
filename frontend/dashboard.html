@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel | FluxBot</title>
+    <link rel="stylesheet" href="src/css/styles.css" />
+</head>
+
+<body class="dashboard-layout">
+    <!-- HEADER -->
+    <header>
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <div class="logo-badge">FB</div>
+                <span>FLUXBOT</span>
+            </a>
+
+            <nav>
+                <a href="index.html#home">Home</a>
+                <a href="index.html#features">Funcionalidades</a>
+                <a href="index.html#plans">Planos</a>
+                <a href="index.html#faq">Suporte</a>
+                <a href="login.html" id="login-link-header" style="display: none;">Login</a>
+                <div class="nav-cta">
+                    <a href="dashboard.html" class="btn btn-outline btn-sm" id="dashboard-btn-header">Painel</a>
+                    <a href="register.html" class="btn btn-primary btn-sm" id="register-btn-header"
+                        style="display: none;">Começar Agora</a>
+                    <button class="btn btn-secondary btn-sm" id="logout-btn">Sair</button>
+                </div>
+            </nav>
+
+            <button class="mobile-menu-btn">Menu</button>
+        </div>
+    </header>
+
+    <main class="dashboard-main">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-kicker">Painel</div>
+                <h2 class="section-title">Visão Geral dos Aparelhos</h2>
+                <p class="section-subtitle">
+                    Gerencie seus dispositivos conectados e acompanhe o status.
+                </p>
+            </div>
+
+            <div id="dashboard-message" class="message-area" style="display: none;"></div>
+
+            <div class="dashboard-grid">
+                <!-- Coluna Principal - Aparelhos -->
+                <div>
+                    <div class="dashboard-grid">
+                        <div>
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-header">
+                                    <div class="dashboard-card-title">Meus Aparelhos</div>
+                                    <button class="btn btn-primary btn-sm" onclick="window.location.href='devices.html'">Adicionar Aparelho</button>
+                                </div>
+                                <div id="dashboard-message" class="message-area" style="display: none;"></div>
+                                <div id="devices-list" class="dashboard-list">
+                                    <!-- Aparelhos serão renderizados aqui pelo JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card-subtitle">
+                            Conecte novos números de WhatsApp ou Telegram.
+                        </div>
+                        <div id="devices-list" style="margin-top: 12px; display: grid; gap: 10px;">
+                            <!-- Aparelhos serão carregados aqui -->
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-header">
+                                    <div class="dashboard-card-title">Carregando Aparelhos...</div>
+                                </div>
+                                <div class="dashboard-card-subtitle">
+                                    Aguarde enquanto buscamos seus dispositivos.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna Lateral - Métricas e Resumo -->
+                <div>
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Métricas Rápidas</div>
+                        </div>
+                        <div class="dashboard-metrics">
+                            <div class="dashboard-metric">
+                                <div class="dashboard-metric-label">Total de Aparelhos</div>
+                                <div class="dashboard-metric-value" id="total-devices">0</div>
+                            </div>
+                            <div class="dashboard-metric">
+                                <div class="dashboard-metric-label">Conectados</div>
+                                <div class="dashboard-metric-value" id="connected-devices">0</div>
+                            </div>
+                            <div class="dashboard-metric">
+                                <div class="dashboard-metric-label">Offline</div>
+                                <div class="dashboard-metric-value" id="offline-devices">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card" style="margin-top: 18px;">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Informações da Conta</div>
+                        </div>
+                        <ul class="dashboard-list">
+                            <li>
+                                <span>Usuário:</span>
+                                <span id="user-name">Carregando...</span>
+                            </li>
+                            <li>
+                                <span>E-mail:</span>
+                                <span id="user-email">Carregando...</span>
+                            </li>
+                            <li>
+                                <span>Plano:</span>
+                                <span id="user-plan">Básico</span>
+                            </li>
+                            <li>
+                                <span>Expira em:</span>
+                                <span id="plan-expiration">30/03/2026</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container footer-inner">
+            <div>© <span id="year"></span> FluxBot. Todos os direitos reservados.</div>
+            <div class="footer-links">
+                <a href="#termos">Termos de Uso</a>
+                <a href="#privacidade">Política de Privacidade</a>
+                <a href="#contato">Contato</a>
+                <a href="#suporte">Suporte</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+
+</html>

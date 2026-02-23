@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Aparelhos | FluxBot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./src/css/styles.css" />
+    <link rel="stylesheet" href="./src/devices.css">
+</head>
+
+<body class="dashboard-layout">
+
+    <header>
+        <div class="container header-inner">
+            <a href="dashboard.html" class="logo">
+                <div class="logo-badge">FB</div>
+                <span>FLUXBOT</span>
+            </a>
+            <nav>
+                <a href="dashboard.html">Dashboard</a>
+                <a href="devices.html" class="active">Aparelhos</a>
+                <a href="flows.html">Fluxos</a>
+                <a href="campaigns.html">Campanhas</a>
+                <a href="contacts.html">Contatos</a>
+                <button id="btn-logout" class="btn btn-outline btn-sm">Sair</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="dashboard-main">
+        <div class="container">
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div>
+                        <div class="dashboard-card-title">Aparelhos conectados</div>
+                        <div class="dashboard-card-subtitle">
+                            Gerencie suas integrações com WhatsApp e Telegram
+                        </div>
+                    </div>
+                    <button id="btn-open-modal" class="btn btn-primary btn-sm">
+                        + Adicionar aparelho
+                    </button>
+                </div>
+
+                <div id="devices-error" class="alert alert-error" style="display:none;"></div>
+
+                <table class="table" id="devices-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Plataforma</th>
+                            <th>Status</th>
+                            <th>Última conexão</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devices-tbody">
+                        <tr>
+                            <td colspan="5">Carregando aparelhos...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal simples de criação -->
+    <div id="device-modal" class="modal" style="display:none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Novo aparelho</h2>
+                <button id="modal-close" class="btn-icon">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-error" class="alert alert-error" style="display:none;"></div>
+
+                <label class="auth-label">Nome do aparelho</label>
+                <input id="device-name" class="auth-input" placeholder="Ex: WhatsApp Loja A" />
+
+                <label class="auth-label" style="margin-top:10px;">Plataforma</label>
+                <select id="device-platform" class="auth-input">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel" class="btn btn-outline btn-sm">Cancelar</button>
+                <button id="modal-save" class="btn btn-primary btn-sm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('fluxbot_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const tbody = document.getElementById('devices-tbody');
+            const errorBox = document.getElementById('devices-error');
+            const btnLogout = document.getElementById('btn-logout');
+
+            const modal = document.getElementById('device-modal');
+            const btnOpen = document.getElementById('btn-open-modal');
+            const btnClose = document.getElementById('modal-close');
+            const btnCancel = document.getElementById('modal-cancel');
+            const btnSave = document.getElementById('modal-save');
+            const inpName = document.getElementById('device-name');
+            const selPlat = document.getElementById('device-platform');
+            const modalError = document.getElementById('modal-error');
+
+            function showError(msg) {
+                errorBox.textContent = msg;
+                errorBox.style.display = 'block';
+            }
+
+            function clearError() {
+                errorBox.style.display = 'none';
+            }
+
+            function formatPlatform(p) {
+                if (p === 'whatsapp') return 'WhatsApp';
+                if (p === 'telegram') return 'Telegram';
+                return p;
+            }
+
+            function formatStatus(s) {
+                switch (s) {
+                    case 'connected': return 'Conectado';
+                    case 'disconnected': return 'Desconectado';
+                    case 'pending_qr': return 'Aguardando QR Code';
+                    case 'error': return 'Erro';
+                    default: return s;
+                }
+            }
+
+            function formatDate(dateStr) {
+                if (!dateStr) return '-';
+                const d = new Date(dateStr);
+                if (isNaN(d)) return '-';
+                return d.toLocaleString();
+            }
+
+            async function loadDevices() {
+                clearError();
+                tbody.innerHTML = '<tr><td colspan="5">Carregando aparelhos...</td></tr>';
+
+                try {
+                    const res = await fetch(`${API_URL}/devices`, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+
+                    if (res.status === 401) {
+                        localStorage.removeItem('fluxbot_token');
+                        localStorage.removeItem('fluxbot_user');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+
+                    const json = await res.json();
+                    const devicesArray = json.devices || [];
+
+                    if (!Array.isArray(devicesArray) || devicesArray.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5">Nenhum aparelho cadastrado ainda.</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = devicesArray.map(dev => `
+                        <tr data-id="${dev.id}">
+                            <td>${dev.name}</td>
+                            <td>${formatPlatform(dev.platform)}</td>
+                            <td>
+                                <span class="status-badge ${dev.status === 'connected' ? 'online' : dev.status === 'pending_qr' ? 'pending' : 'offline'}">
+                                    ${formatStatus(dev.status)}
+                                </span>
+                            </td>
+                            <td>${formatDate(dev.last_connected_at)}</td>
+                            <td>
+                                <button class="btn btn-outline btn-xs" data-action="connect">Conectar</button>
+                                <button class="btn btn-outline btn-xs" data-action="disconnect">Desconectar</button>
+                                <button class="btn btn-outline btn-xs" data-action="delete">Remover</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (err) {
+                    console.error('Erro ao carregar devices:', err);
+                    showError('Erro de conexão com o servidor.');
+                    tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar aparelhos.</td></tr>';
+                }
+            }
+
+            // Ações na tabela
+            tbody.addEventListener('click', async (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+
+                const tr = btn.closest('tr');
+                const id = tr.getAttribute('data-id');
+                const action = btn.getAttribute('data-action');
+
+                if (!id || !action) return;
+
+                if (action === 'delete') {
+                    if (!confirm('Tem certeza que deseja remover este aparelho?')) return;
+                    try {
+                        const res = await fetch(`${API_URL}/devices/${id}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        if (!res.ok && res.status !== 204) {
+                            const data = await res.json();
+                            alert(data.error || 'Erro ao remover aparelho.');
+                            return;
+                        }
+                        loadDevices();
+                    } catch (err) {
+                        console.error('Erro ao remover device:', err);
+                        alert('Erro de conexão ao remover aparelho.');
+                    }
+                }
+
+                if (action === 'connect') {
+                    try {
+                        const res = await fetch(`${API_URL}/devices/${id}/connect`, {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao conectar aparelho.');
+                            return;
+                        }
+                        loadDevices();
+                    } catch (err) {
+                        console.error('Erro ao conectar device:', err);
+                        alert('Erro de conexão ao conectar aparelho.');
+                    }
+                }
+
+                if (action === 'disconnect') {
+                    try {
+                        const res = await fetch(`${API_URL}/devices/${id}/disconnect`, {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            alert(data.error || 'Erro ao desconectar aparelho.');
+                            return;
+                        }
+                        loadDevices();
+                    } catch (err) {
+                        console.error('Erro ao desconectar device:', err);
+                        alert('Erro de conexão ao desconectar aparelho.');
+                    }
+                }
+            });
+
+            // Modal
+            function openModal() {
+                modal.style.display = 'block';
+                modalError.style.display = 'none';
+                inpName.value = '';
+                selPlat.value = 'whatsapp';
+            }
+
+            function closeModal() {
+                modal.style.display = 'none';
+            }
+
+            btnOpen.addEventListener('click', openModal);
+            btnClose.addEventListener('click', closeModal);
+            btnCancel.addEventListener('click', closeModal);
+
+            btnSave.addEventListener('click', async () => {
+                modalError.style.display = 'none';
+                const name = inpName.value.trim();
+                const platform = selPlat.value;
+
+                if (!name) {
+                    modalError.textContent = 'Informe um nome para o aparelho.';
+                    modalError.style.display = 'block';
+                    return;
+                }
+
+                btnSave.textContent = 'Salvando...';
+                btnSave.disabled = true;
+
+                try {
+                    const res = await fetch(`${API_URL}/devices`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ name, platform, config: {} })
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        modalError.textContent = data.error || 'Erro ao criar aparelho.';
+                        modalError.style.display = 'block';
+                        btnSave.textContent = 'Salvar';
+                        btnSave.disabled = false;
+                        return;
+                    }
+
+                    closeModal();
+                    loadDevices();
+
+                } catch (err) {
+                    console.error('Erro ao criar device:', err);
+                    modalError.textContent = 'Erro de conexão ao criar aparelho.';
+                    modalError.style.display = 'block';
+                } finally {
+                    btnSave.textContent = 'Salvar';
+                    btnSave.disabled = false;
+                }
+            });
+
+            btnLogout.addEventListener('click', () => {
+                localStorage.removeItem('fluxbot_token');
+                localStorage.removeItem('fluxbot_user');
+                window.location.href = 'login.html';
+            });
+
+            // Carrega lista ao entrar
+            loadDevices();
+
+            // Polling automático
+            const POLLING_INTERVAL = 5000; 
+            let pollingIntervalId;
+
+            function startPolling() {
+                if (pollingIntervalId) clearInterval(pollingIntervalId);
+                pollingIntervalId = setInterval(loadDevices, POLLING_INTERVAL);
+            }
+
+            function stopPolling() {
+                if (pollingIntervalId) {
+                    clearInterval(pollingIntervalId);
+                    pollingIntervalId = null;
+                }
+            }
+
+            startPolling();
+            window.addEventListener('beforeunload', stopPolling);
+        });
+    </script>
+
+</body>
