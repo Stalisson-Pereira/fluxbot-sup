@@ -419,6 +419,46 @@ app.post('/devices/:id/disconnect', auth, async (req, res) => {
     }
 });
 
+app.get('/subscription/me', auth, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT 
+                s.id,
+                s.status,
+                s.trial_end_at,
+                s.current_period_start,
+                p.name as plan_name
+             FROM subscriptions s
+             LEFT JOIN plans p ON p.id = s.plan_id
+             WHERE s.user_id = $1
+             ORDER BY s.created_at DESC
+             LIMIT 1`,
+            [req.userId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Assinatura não encontrada.' });
+        }
+
+        const sub = rows[0];
+
+        // 🔥 lógica automática trial expirado
+        if (sub.status === 'trial' && new Date(sub.trial_end_at) < new Date()) {
+            await pool.query(
+                `UPDATE subscriptions SET status = 'expired' WHERE id = $1`,
+                [sub.id]
+            );
+            sub.status = 'expired';
+        }
+
+        res.json({ subscription: sub });
+
+    } catch (err) {
+        console.error('Erro no /subscription/me:', err.message);
+        res.status(500).json({ error: 'Erro ao buscar assinatura.' });
+    }
+});
+
 // Rota para enviar mensagem via WhatsApp Cloud API
 app.post('/whatsapp-cloud/send', auth, async (req, res) => {
     const { deviceId, to, text } = req.body;
