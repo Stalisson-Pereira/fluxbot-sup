@@ -1,4 +1,7 @@
-const API_BASE_URL = 'https://fluxbot-sup.onrender.com';
+const API_BASE_URL =
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
+    : 'https://fluxbot-sup.onrender.com';
 
 function getToken() {
     const token = localStorage.getItem('fluxbot_token');
