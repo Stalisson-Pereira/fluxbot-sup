@@ -184,10 +184,45 @@ function loadUserInfo() {
     }
 }
 
+async function loadSubscription() {
+    const token = protectRoute();
+    if (!token) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/subscription/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            console.error(data.error);
+            return;
+        }
+
+        const sub = data.subscription;
+
+        document.getElementById('user-plan').textContent =
+            sub.plan_name || 'Trial';
+
+        document.getElementById('user-expiration').textContent =
+            sub.trial_end_at
+                ? new Date(sub.trial_end_at).toLocaleDateString('pt-BR')
+                : '—';
+
+        const statusEl = document.getElementById('user-sub-status');
+        if (statusEl) statusEl.textContent = sub.status.toUpperCase();
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
     protectRoute(); // redireciona se não houver token
     loadDevices();
     setupDeviceActions();
     loadUserInfo(); // Carrega info do usuário
+    loadSubscription(); 
 });
