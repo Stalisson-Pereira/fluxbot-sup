@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Menu mobile (se quiser usar)
+    // Menu mobile
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
     const navEl = document.querySelector('header nav');
     if (mobileMenuBtn && navEl) {
