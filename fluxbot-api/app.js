@@ -77,7 +77,7 @@ app.post('/auth/register', async (req, res) => {
 
         await pool.query(
             `INSERT INTO subscriptions (user_id, plan_id, status, trial_end_at, current_period_start)
-             VALUES ($1, 1, 'trial', NOW() + INTERVAL '7 days', NOW())`,
+             VALUES ($1, 1, 'trial', NOW() AT TIME ZONE 'UTC' + INTERVAL '7 days'`,
             [user.id]
         );
 
