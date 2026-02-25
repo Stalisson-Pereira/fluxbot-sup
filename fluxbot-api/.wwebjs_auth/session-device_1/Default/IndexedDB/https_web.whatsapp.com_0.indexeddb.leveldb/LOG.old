@@ -1,0 +1,5 @@
+2026/02/24-19:50:49.543 1ba4 Creating DB C:\Users\thall\OneDrive\Área de Trabalho\botbot-supabase\botBot-v1\fluxbot-api\.wwebjs_auth\session-device_1\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb since it was missing.
+2026/02/24-19:50:49.623 1ba4 Reusing MANIFEST C:\Users\thall\OneDrive\Área de Trabalho\botbot-supabase\botBot-v1\fluxbot-api\.wwebjs_auth\session-device_1\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/02/24-19:51:35.276 4fac Level-0 table #5: started
+2026/02/24-19:51:35.335 4fac Level-0 table #5: 1005819 bytes OK
+2026/02/24-19:51:35.346 4fac Delete type=0 #3

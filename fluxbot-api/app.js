@@ -4,32 +4,21 @@ import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import fetch from 'node-fetch';
-// Importa o pool do banco de dados de um arquivo separado
 import { pool } from './db.js';
-
-// Importa os serviços de bot
-// O startDevice será adaptado para lidar com 'whatsapp' (web.js) e 'whatsapp_cloud' (Meta)
 import { startDevice, stopDevice } from './botService.js';
 
 dotenv.config();
 
 const app = express();
 
-// ========================
-// CORS — libera front-end
-// ========================
 app.use(cors({
-    origin: '*', // Em produção, troque por seu domínio real (ex: 'http://localhost:8080')
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Lê JSON do body
 app.use(express.json());
 
-// ========================
-// HELPERS
-// ========================
 function generateToken(userId) {
     return jwt.sign(
         { userId },
@@ -54,11 +43,6 @@ function auth(req, res, next) {
     }
 }
 
-// ========================
-// ROTAS
-// ========================
-
-// Teste de saúde (banco + API)
 app.get('/health', async (req, res) => {
     try {
         const result = await pool.query('SELECT NOW() as now');
@@ -69,7 +53,6 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Criar conta
 app.post('/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -108,8 +91,6 @@ app.post('/auth/register', async (req, res) => {
     }
 });
 
-
-// Login
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -148,13 +129,10 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-// Dashboard overview (protegido)
 app.get('/dashboard/overview', auth, async (req, res) => {
     const userId = req.userId;
 
     try {
-        // Exemplo de como buscar dados para o dashboard
-        // Você precisará de uma tabela 'messages' e 'contacts' para isso
         const messagesTodayResult = await pool.query(
             `SELECT COUNT(*) FROM messages
              WHERE user_id = $1
@@ -182,7 +160,6 @@ app.get('/dashboard/overview', auth, async (req, res) => {
             messagesToday: parseInt(messagesToday),
             totalContacts: parseInt(totalContacts),
             devicesConnected: parseInt(devicesConnected),
-            // Adicione mais métricas conforme necessário
         });
     } catch (err) {
         console.error('Erro no /dashboard/overview:', err.message);
@@ -190,7 +167,6 @@ app.get('/dashboard/overview', auth, async (req, res) => {
     }
 });
 
-// Listar aparelhos (protegido)
 app.get('/devices', auth, async (req, res) => {
     try {
         const { rows } = await pool.query(
@@ -207,7 +183,6 @@ app.get('/devices', auth, async (req, res) => {
     }
 });
 
-// Criar aparelho (protegido)
 app.post('/devices', auth, async (req, res) => {
     try {
         const { name, platform, config } = req.body;
@@ -216,16 +191,12 @@ app.post('/devices', auth, async (req, res) => {
             return res.status(400).json({ error: 'Informe nome e plataforma.' });
         }
 
-        // <--- ATUALIZADO: Adicionando 'whatsapp_cloud' às plataformas permitidas
         const allowedPlatforms = ['whatsapp', 'telegram', 'whatsapp_cloud'];
         if (!allowedPlatforms.includes(platform)) {
             return res.status(400).json({ error: 'Plataforma inválida.' });
         }
 
-        const configJson =
-            config && typeof config === 'object' ? config : {};
-
-        // Adicione o status inicial 'disconnected' aqui
+        const configJson = config && typeof config === 'object' ? config : {};
         const initialStatus = 'disconnected';
 
         const { rows } = await pool.query(
@@ -239,16 +210,15 @@ app.post('/devices', auth, async (req, res) => {
     } catch (err) {
         console.error('Erro ao criar device:', err.message);
         let userMessage = 'Erro ao criar aparelho.';
-        if (err.code === '23502') { // not-null violation
+        if (err.code === '23502') {
             userMessage = `Erro: Campo '${err.column}' é obrigatório.`;
-        } else if (err.code === '42P01') { // undefined_table
+        } else if (err.code === '42P01') {
             userMessage = 'Erro interno: Tabela de aparelhos não encontrada.';
         }
         res.status(500).json({ error: userMessage });
     }
 });
 
-// Atualizar aparelho (protegido)
 app.put('/devices/:id', auth, async (req, res) => {
     try {
         const deviceId = Number(req.params.id);
@@ -276,7 +246,6 @@ app.put('/devices/:id', auth, async (req, res) => {
             return res.status(400).json({ error: 'Nada para atualizar.' });
         }
 
-        // WHERE params
         values.push(req.userId);
         values.push(deviceId);
 
@@ -310,7 +279,6 @@ app.put('/devices/:id', auth, async (req, res) => {
     }
 });
 
-// Detalhe de um device
 app.get('/devices/:id', auth, async (req, res) => {
     const userId = req.userId;
     const deviceId = req.params.id;
@@ -335,8 +303,6 @@ app.get('/devices/:id', auth, async (req, res) => {
     }
 });
 
-
-// Remover aparelho (protegido)
 app.delete('/devices/:id', auth, async (req, res) => {
     try {
         const deviceId = Number(req.params.id);
@@ -345,8 +311,7 @@ app.delete('/devices/:id', auth, async (req, res) => {
             return res.status(400).json({ error: 'ID inválido.' });
         }
 
-        // Antes de remover do DB, tenta parar o bot se estiver ativo
-        await stopDevice(deviceId); // Garante que a sessão seja encerrada
+        await stopDevice(deviceId);
 
         const { rowCount } = await pool.query(
             `DELETE FROM devices
@@ -359,7 +324,6 @@ app.delete('/devices/:id', auth, async (req, res) => {
             return res.status(404).json({ error: 'Aparelho não encontrado.' });
         }
 
-        // REST padrão → 204 No Content
         res.status(204).send();
 
     } catch (err) {
@@ -368,7 +332,6 @@ app.delete('/devices/:id', auth, async (req, res) => {
     }
 });
 
-// Conectar aparelho (protegido)
 app.post('/devices/:id/connect', auth, async (req, res) => {
     try {
         const deviceId = Number(req.params.id);
@@ -377,7 +340,6 @@ app.post('/devices/:id/connect', auth, async (req, res) => {
             return res.status(400).json({ error: 'ID inválido.' });
         }
 
-        // 1. Busca o device do usuário para ter todas as configs
         const { rows } = await pool.query(
             `SELECT id, user_id, name, platform, status, config
              FROM devices
@@ -391,21 +353,15 @@ app.post('/devices/:id/connect', auth, async (req, res) => {
 
         const device = rows[0];
 
-        // <--- ATUALIZADO: Lógica para Cloud API
         if (device.platform === 'whatsapp_cloud') {
-            // Para Cloud API, "conectar" significa apenas marcar como ativo
-            // Não há uma conexão persistente como no whatsapp-web.js
             await pool.query(
                 `UPDATE devices SET status = 'connected', last_connected_at = NOW() WHERE id = $1`,
                 [deviceId]
             );
-            console.log(`Device ${deviceId} (WhatsApp Cloud) marcado como conectado.`);
         } else {
-            // Para whatsapp-web.js, chama o serviço de bots para iniciar a conexão
             await startDevice(device);
         }
 
-        // 3. Retorna o device atualizado (buscando do DB para ter o status mais recente)
         const { rows: updatedDeviceRows } = await pool.query(
             `SELECT id, name, platform, status, last_error, last_connected_at, created_at
              FROM devices
@@ -421,7 +377,6 @@ app.post('/devices/:id/connect', auth, async (req, res) => {
     }
 });
 
-// Desconectar aparelho (protegido)
 app.post('/devices/:id/disconnect', auth, async (req, res) => {
     try {
         const deviceId = Number(req.params.id);
@@ -430,7 +385,6 @@ app.post('/devices/:id/disconnect', auth, async (req, res) => {
             return res.status(400).json({ error: 'ID inválido.' });
         }
 
-        // 1. Confirma que o device pertence ao usuário
         const { rowCount, rows: deviceRows } = await pool.query(
             `SELECT id, platform FROM devices WHERE id = $1 AND user_id = $2`,
             [deviceId, req.userId]
@@ -441,20 +395,15 @@ app.post('/devices/:id/disconnect', auth, async (req, res) => {
 
         const device = deviceRows[0];
 
-        // <--- ATUALIZADO: Lógica para Cloud API
         if (device.platform === 'whatsapp_cloud') {
-            // Para Cloud API, "desconectar" significa apenas marcar como desconectado
             await pool.query(
                 `UPDATE devices SET status = 'disconnected', last_error = NULL WHERE id = $1`,
                 [deviceId]
             );
-            console.log(`Device ${deviceId} (WhatsApp Cloud) marcado como desconectado.`);
         } else {
-            // Para whatsapp-web.js, chama o serviço de bots para parar a conexão
             await stopDevice(deviceId);
         }
 
-        // 3. Retorna o device atualizado (buscando do DB para ter o status mais recente)
         const { rows: updatedDeviceRows } = await pool.query(
             `SELECT id, name, platform, status, last_error, last_connected_at, created_at
              FROM devices
@@ -470,10 +419,6 @@ app.post('/devices/:id/disconnect', auth, async (req, res) => {
     }
 });
 
-// ====================================================================================================
-// <--- NOVAS ROTAS PARA WHATSAPP CLOUD API (META) ---
-// ====================================================================================================
-
 // Rota para enviar mensagem via WhatsApp Cloud API
 app.post('/whatsapp-cloud/send', auth, async (req, res) => {
     const { deviceId, to, text } = req.body;
@@ -483,7 +428,6 @@ app.post('/whatsapp-cloud/send', auth, async (req, res) => {
     }
 
     try {
-        // 1. Busca o device do usuário para ter as configs da Cloud API
         const { rows } = await pool.query(
             `SELECT id, user_id, platform, config
              FROM devices
@@ -530,6 +474,12 @@ app.post('/whatsapp-cloud/send', auth, async (req, res) => {
             return res.status(response.status).json({ error: data.error?.message || 'Erro ao enviar mensagem via WhatsApp Cloud API.' });
         }
 
+        await pool.query(
+            `INSERT INTO messages (device_id, user_id, direction, from_number, to_number, body, status, external_id)
+             VALUES ($1, $2, 'outbound', $3, $4, $5, 'sent', $6)`,
+            [deviceId, req.userId, phoneNumberId, to, text, data.messages[0].id]
+        );
+
         res.json({ success: true, messageId: data.messages[0].id });
 
     } catch (err) {
@@ -559,32 +509,41 @@ app.post('/whatsapp-cloud/webhook', async (req, res) => {
         const body = req.body;
         console.log('Webhook WhatsApp Cloud recebido:', JSON.stringify(body, null, 2));
 
-        // <--- Aqui você processaria as mensagens recebidas ---
-        // Exemplo: Salvar no banco de dados, disparar fluxos, etc.
-        // Você precisará de uma tabela 'messages' para isso.
-
-        // Exemplo de como extrair uma mensagem de texto
         if (body.object === 'whatsapp_business_account' && body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages) {
             const message = body.entry[0].changes[0].value.messages[0];
-            const from = message.from; // Número do remetente
-            const text = message.text?.body; // Conteúdo da mensagem de texto
+            const from = message.from;
+            const text = message.text?.body;
+            const whatsappBusinessAccountId = body.entry[0].changes[0].value.metadata.phone_number_id;
 
-            console.log(`Mensagem recebida de ${from}: ${text}`);
+            console.log(`Mensagem recebida de ${from} no aparelho ${whatsappBusinessAccountId}: ${text}`);
 
-            // <--- FUTURO: Aqui você chamaria seu motor de fluxos
-            // Ex: await processIncomingMessage(from, text, deviceId);
+            const { rows: deviceRows } = await pool.query(
+                `SELECT id, user_id FROM devices WHERE platform = 'whatsapp_cloud' AND config->>'phoneNumberId' = $1`,
+                [whatsappBusinessAccountId]
+            );
+
+            if (deviceRows.length > 0) {
+                const device = deviceRows[0];
+                const deviceId = device.id;
+                const userId = device.user_id;
+
+                await pool.query(
+                    `INSERT INTO messages (device_id, user_id, direction, from_number, to_number, body, status, external_id)
+                     VALUES ($1, $2, 'inbound', $3, $4, $5, 'received', $6)`,
+                    [deviceId, userId, from, whatsappBusinessAccountId, text, message.id]
+                );
+            } else {
+                console.warn(`Webhook: Device WhatsApp Cloud com phoneNumberId ${whatsappBusinessAccountId} não encontrado no DB.`);
+            }
         }
 
-        res.sendStatus(200); // Sempre responda 200 OK para a Meta
+        res.sendStatus(200);
     } catch (err) {
         console.error('Erro no webhook WhatsApp Cloud:', err.message);
         res.sendStatus(500);
     }
 });
 
-// ========================
-// INICIAR SERVIDOR
-// ========================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`✅ 🚀 FluxBot API rodando em http://localhost:${PORT}`);

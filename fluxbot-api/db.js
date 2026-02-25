@@ -1,23 +1,18 @@
-import { Pool } from 'pg';
+import pg from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+const { Pool } = pg;
+
 export const pool = new Pool({
-    user: process.env.PGUSER,
-    host: process.env.PGHOST,
-    database: process.env.PGDATABASE,
-    password: process.env.PGPASSWORD,
-    port: Number(process.env.PGPORT) || 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Necessário para alguns ambientes de desenvolvimento com Supabase
+    }
 });
 
-// Opcional: Testar conexão ao iniciar
-pool.connect()
-    .then(client => {
-        console.log('✅ Conectado ao PostgreSQL!');
-        client.release();
-    })
-    .catch(err => {
-        console.error('❌ Erro ao conectar ao PostgreSQL:', err.message);
-        process.exit(-1);
-    });
+pool.on('error', (err, client) => {
+    console.error('Erro inesperado no pool do DB:', err.message, err.stack);
+    process.exit(-1);
+});

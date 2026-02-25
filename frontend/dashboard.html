@@ -45,29 +45,25 @@
                 </p>
             </div>
 
-            <div id="dashboard-message" class="message-area" style="display: none;"></div>
+            <!-- Mensagem geral do dashboard (sucesso/erro) -->
+            <div id="dashboard-global-message" class="message-area" style="display: none;"></div>
 
             <div class="dashboard-grid">
                 <!-- Coluna Principal - Aparelhos -->
                 <div>
-                    <div class="dashboard-grid">
-                        <div>
-                            <div class="dashboard-card">
-                                <div class="dashboard-card-header">
-                                    <div class="dashboard-card-title">Meus Aparelhos</div>
-                                    <button class="btn btn-primary btn-sm" onclick="window.location.href='devices.html'">Adicionar Aparelho</button>
-                                </div>
-                                <div id="dashboard-message" class="message-area" style="display: none;"></div>
-                                <div id="devices-list" class="dashboard-list">
-                                    <!-- Aparelhos serão renderizados aqui pelo JS -->
-                                </div>
-                            </div>
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Meus Aparelhos</div>
+                            <button class="btn btn-primary btn-sm"
+                                onclick="window.location.href='devices.html'">Adicionar Aparelho</button>
                         </div>
-                        <div class="dashboard-card-subtitle">
-                            Conecte novos números de WhatsApp ou Telegram.
-                        </div>
-                        <div id="devices-list" style="margin-top: 12px; display: grid; gap: 10px;">
-                            <!-- Aparelhos serão carregados aqui -->
+                        <!-- Mensagem específica para a lista de aparelhos -->
+                        <div id="devices-list-message" class="message-area" style="display: none;"></div>
+
+                        <!-- Container onde os aparelhos serão renderizados -->
+                        <div id="devices-list-container" class="dashboard-list"
+                            style="margin-top: 12px; display: grid; gap: 10px;">
+                            <!-- Aparelhos ou mensagem de carregamento/vazio serão renderizados aqui pelo JS -->
                             <div class="dashboard-card">
                                 <div class="dashboard-card-header">
                                     <div class="dashboard-card-title">Carregando Aparelhos...</div>

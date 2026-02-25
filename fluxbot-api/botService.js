@@ -1,3 +1,4 @@
+// botService.js
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import { pool } from './db.js';
@@ -9,10 +10,10 @@ async function updateDeviceStatus(deviceId, status, lastError = null) {
     try {
         await pool.query(
             `UPDATE devices
-             SET status = $1,
+             SET status = $1::device_status, -- <--- AQUI ESTÁ A CORREÇÃO: Cast explícito para o ENUM
                  last_error = $2,
                  updated_at = NOW(),
-                 last_connected_at = CASE WHEN $1 = 'connected' THEN NOW() ELSE last_connected_at END
+                 last_connected_at = CASE WHEN $1::device_status = 'connected' THEN NOW() ELSE last_connected_at END -- E AQUI TAMBÉM
              WHERE id = $3`,
             [status, lastError, deviceId]
         );
@@ -21,8 +22,29 @@ async function updateDeviceStatus(deviceId, status, lastError = null) {
     }
 }
 
+// ... (o restante do seu botService.js permanece o mesmo) ...
+
+// Função para salvar mensagens recebidas no banco de dados (se você não tiver ela, adicione)
+async function saveIncomingMessage(deviceId, userId, msg) {
+    try {
+        const fromNumber = msg.from;
+        const toNumber = msg.to;
+        const body = msg.body;
+        const externalId = msg.id.id;
+
+        await pool.query(
+            `INSERT INTO messages (device_id, user_id, direction, from_number, to_number, body, status, external_id)
+             VALUES ($1, $2, 'inbound', $3, $4, $5, 'received', $6)`,
+            [deviceId, userId, fromNumber, toNumber, body, 'received', externalId]
+        );
+        console.log(`Mensagem inbound de ${fromNumber} salva para device ${deviceId} e user ${userId}.`);
+    } catch (err) {
+        console.error(`Erro ao salvar mensagem inbound para device ${deviceId}:`, err.message);
+    }
+}
+
 export async function startDevice(device) {
-    const { id, platform } = device;
+    const { id, platform, user_id: userId } = device; // Adicionado user_id
 
     if (getBot(id)) {
         console.log(`Device ${id} (${platform}) já registrado.`);
@@ -30,8 +52,14 @@ export async function startDevice(device) {
     }
 
     if (platform === 'whatsapp') {
-        await startWhatsappDevice(device);
-    } else {
+        await startWhatsappDevice(device, userId); // Passa userId
+    } else if (platform === 'whatsapp_cloud') {
+        if (device.status !== 'connected') {
+            await updateDeviceStatus(id, 'connected', null);
+        }
+        console.log(`Device ${id} (WhatsApp Cloud) não requer inicialização de cliente persistente.`);
+    }
+    else {
         await updateDeviceStatus(id, 'error', `Plataforma '${platform}' não suportada.`);
         throw new Error(`Plataforma não suportada: ${platform}`);
     }
@@ -49,13 +77,17 @@ export async function stopDevice(deviceId) {
                 console.error(`Erro ao parar WhatsApp client ${deviceId}:`, err.message);
                 await updateDeviceStatus(deviceId, 'error', `Erro ao parar: ${err.message}`);
             }
+        } else if (bot.platform === 'whatsapp_cloud') {
+            await updateDeviceStatus(deviceId, 'disconnected', null);
+            unregisterBot(deviceId);
+            console.log(`Device ${deviceId} (WhatsApp Cloud) marcado como desconectado.`);
         }
     } else {
         await updateDeviceStatus(deviceId, 'disconnected', null);
     }
 }
 
-async function startWhatsappDevice(device) {
+async function startWhatsappDevice(device, userId) { // Recebe userId
     const { id } = device;
     console.log(`Iniciando WhatsApp device ${id}...`);
 
@@ -65,7 +97,7 @@ async function startWhatsappDevice(device) {
             dataPath: SESSION_DIR,
         }),
         puppeteer: {
-            headless: false, // <<< Abrir aba do navegador
+            headless: false, // Abrir aba do navegador
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -79,39 +111,34 @@ async function startWhatsappDevice(device) {
         },
     });
 
-    // Estado do client
     client.on('change_state', (state) => {
         console.log(`Device ${id} - Estado: ${state}`);
     });
 
-    // QR Code não usado mais
     client.on('qr', async (qr) => {
         console.log(`QR ignorado. Abrir aba do WhatsApp Web para device ${id}`);
         await updateDeviceStatus(id, 'pending_qr', 'QR ignorado - abrir WhatsApp Web');
     });
 
-    // Client pronto → status conectado
     client.on('ready', async () => {
         console.log(`WhatsApp device ${id} conectado!`);
         await updateDeviceStatus(id, 'connected', null);
     });
 
-    // Desconectado
     client.on('disconnected', async (reason) => {
         console.log(`Device ${id} desconectado:`, reason);
         unregisterBot(id);
         await updateDeviceStatus(id, 'disconnected', reason || null);
     });
 
-    // Erro genérico
     client.on('error', async (err) => {
         console.error(`Erro no WhatsApp client ${id}:`, err.message);
         await updateDeviceStatus(id, 'error', err.message);
     });
 
-    // Mensagens recebidas
     client.on('message', async (msg) => {
         console.log(`Mensagem recebida device ${id}:`, msg.from, msg.body);
+        await saveIncomingMessage(id, userId, msg); // Salva a mensagem no DB
     });
 
     registerBot(id, { platform: 'whatsapp', client });

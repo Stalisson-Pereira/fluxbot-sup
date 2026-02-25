@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Configurações do Aparelho | FluxBot</title>
+    <link rel="stylesheet" href="src/css/styles.css" />
+</head>
+
+<body class="dashboard-layout">
+    <header>
+        <div class="container header-inner">
+            <a href="index.html" class="logo">
+                <div class="logo-badge">FB</div>
+                <span>FLUXBOT</span>
+            </a>
+
+            <nav>
+                <a href="index.html#home">Home</a>
+                <a href="index.html#features">Funcionalidades</a>
+                <a href="index.html#plans">Planos</a>
+                <a href="index.html#faq">Suporte</a>
+                <a href="login.html" id="login-link-header" style="display:none;">Login</a>
+                <div class="nav-cta">
+                    <a href="dashboard.html" class="btn btn-outline btn-sm" id="dashboard-btn-header">Painel</a>
+                    <a href="register.html" class="btn btn-primary btn-sm" id="register-btn-header"
+                        style="display:none;">
+                        Começar Agora
+                    </a>
+                    <button class="btn btn-secondary btn-sm" id="logout-btn">Sair</button>
+                </div>
+            </nav>
+
+            <button class="mobile-menu-btn">Menu</button>
+        </div>
+    </header>
+
+    <main class="dashboard-main">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-kicker">APARELHO</div>
+                <h1 class="section-title" id="device-name-title">Carregando aparelho...</h1>
+                <p class="section-subtitle">
+                    Configure mensagens, servidores e ações automáticas para este dispositivo.
+                </p>
+            </div>
+
+            <div id="device-message" class="message-area" style="display:none;"></div>
+
+            <div class="dashboard-grid">
+                <div>
+                    <!-- Informações do Aparelho -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Informações do Aparelho</div>
+                            <span id="device-status-badge" class="badge-status offline">Carregando...</span>
+                        </div>
+                        <ul class="device-info-list">
+                            <li><strong>Plataforma:</strong> <span id="device-platform">-</span></li>
+                            <li><strong>Última conexão:</strong> <span id="device-last-connected">-</span></li>
+                            <li><strong>Criado em:</strong> <span id="device-created-at">-</span></li>
+                            <li><strong>Último erro:</strong> <span id="device-last-error">-</span></li>
+                        </ul>
+                        <div class="dashboard-actions" style="margin-top:15px;">
+                            <a href="dashboard.html" class="btn btn-outline btn-sm">Voltar ao Painel</a>
+                        </div>
+                    </div>
+
+                    <!-- NOTE: AQUI NÃO TEM MAIS OS BOTÕES 'Mensagens / Servidores / CTAs' -->
+
+                    <!-- Mensagens Automáticas -->
+                    <div class="dashboard-card" style="margin-top:20px;">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Mensagens Automáticas</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="welcome-message">Mensagem de boas-vindas</label>
+                            <textarea id="welcome-message" rows="4"
+                                placeholder="Ex: Olá! Seja bem-vindo(a) ao nosso atendimento. Como posso ajudar?"></textarea>
+                            <small class="form-hint">Mensagem enviada na primeira interação do cliente.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="out-of-hours-message">Mensagem fora do horário</label>
+                            <textarea id="out-of-hours-message" rows="3"
+                                placeholder="Ex: Olá! No momento estamos fora do horário de atendimento (08h–18h)..."></textarea>
+                            <small class="form-hint">Enviada quando a mensagem chega fora do horário configurado no
+                                servidor.</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="save-messages-button" class="btn btn-primary">Salvar Mensagens</button>
+                        </div>
+                    </div>
+
+                    <!-- Servidores / Webhooks -->
+                    <div class="dashboard-card" style="margin-top:20px;">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Servidores / Webhooks</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="webhook-url">URL do Webhook</label>
+                            <input id="webhook-url" type="text" placeholder="https://seuservidor.com/webhook/fluxbot" />
+                            <small class="form-hint">Receberá todos os eventos de mensagens deste aparelho.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="secret-key">Chave secreta (opcional)</label>
+                            <input id="secret-key" type="text"
+                                placeholder="Use para validar a origem das requisições." />
+                            <small class="form-hint">Enviada no header das requisições para seu servidor.</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button id="save-servers-button" class="btn btn-primary">Salvar Configurações de
+                                Servidor</button>
+                        </div>
+                    </div>
+
+                    <!-- CTAs / Fluxos Rápidos -->
+                    <div class="dashboard-card" style="margin-top:20px;">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">CTAs / Fluxos Rápidos</div>
+                        </div>
+
+                        <p class="form-hint">
+                            Aqui você poderá definir atalhos como: 1 - Vendas, 2 - Suporte, 3 - Financeiro,
+                            palavras‑chave (&quot;boleto&quot;, &quot;cancelar&quot;...) e integração com funis do CRM.
+                        </p>
+
+                        <div class="form-actions">
+                            <button id="create-flow-button" class="btn btn-outline" disabled>
+                                Em breve: Criar Fluxo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container footer-inner">
+            <div>© <span id="year"></span> FluxBot. Todos os direitos reservados.</div>
+            <div class="footer-links">
+                <a href="#termos">Termos de Uso</a>
+                <a href="#privacidade">Política de Privacidade</a>
+                <a href="#contato">Contato</a>
+                <a href="#suporte">Suporte</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/config.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/devicesettings.js"></script>
+</body>
+
+</html>
