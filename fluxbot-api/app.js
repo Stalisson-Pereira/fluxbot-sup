@@ -76,10 +76,10 @@ app.post('/auth/register', async (req, res) => {
         const token = generateToken(user.id);
 
         await pool.query(
-    `INSERT INTO subscriptions (user_id, plan_id, status, trial_end_at, current_period_start)
-     VALUES ($1, 1, 'trial', NOW() + INTERVAL '7 days', NOW())`,
-    [user.id]
-);
+          `INSERT INTO subscriptions (user_id, plan_id, status, trial_end_at, current_period_start)
+         VALUES ($1, 1, 'trial', NOW() + INTERVAL '7 days', NOW())`,
+        [user.id]
+    );
 
         res.status(201).json({ token, user });
     } catch (err) {
